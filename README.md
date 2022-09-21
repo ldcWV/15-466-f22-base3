@@ -6,7 +6,7 @@ Design: A game where your goal is to eat turtles and grow bigger. However, there
 
 Screen Shot:
 
-![Screen Shot](screenshot.png)
+![Screen Shot](buh.png)
 
 How To Play:
 Use arrow keys to move, space to move faster, and Z to ping for assassins. The pitch of the sound is determined by the distance to the closest assassin.
