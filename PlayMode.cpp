@@ -45,8 +45,9 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 			duck = &transform;
 		} else if (transform.name.substr(0, 6) == "Turtle") {
 			turtles[num_turtles++] = &transform;
-			if (transform.name == "Turtle") { // Original turtle: choose z from here
+			if (transform.name == "Turtle") { // Original reference turtle
 				turtle_z = transform.position.z;
+				turtle_initial_rotation = transform.rotation;
 			}
 		}
 	}
@@ -58,6 +59,7 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 	duck_initial_rotation = duck->rotation;
 
 	// spawn turtles
+	static float pi = acosf(-1.f);
 	for (uint16_t i = 0; i < num_turtles; i++) {
 		static float radius = 50.f;
 		float tx, ty;
@@ -70,6 +72,8 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 			turtles[i]->position.z = turtle_z;
 			break;
 		}
+		turtle_angles[i] = distribution(gen) * 2 * pi;
+		turtle_turn_dirs[i] = 0;
 	}
 
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -137,7 +141,6 @@ void PlayMode::update(float elapsed) {
 		// clip to inside the pond
 		static float pond_radius = 50.f;
 		float dist = glm::distance(duck->position, duck_initial_position);
-		std::cout << dist << "\n";
 		if (dist > pond_radius) {
 			glm::vec3 diff = duck->position - duck_initial_position;
 			float angle = atan2f(diff.y, diff.x);
@@ -155,6 +158,53 @@ void PlayMode::update(float elapsed) {
 				float angle = atan2f(-dx, dy);
 				duck->rotation = duck_initial_rotation * glm::angleAxis(angle, glm::vec3(0.0f, 0.0f, 1.0f));
 			}
+		}
+	}
+
+	{ // update turtle positions
+		time_since_update += elapsed;
+	 	// randomly change during direction of some turtles
+		if (time_since_update > 0.2f) {
+			time_since_update = 0;
+			for (uint16_t i = 0; i < num_turtles; i++) {
+				if (distribution(gen) < 0.2f) { // only some turtles change direction
+					float rng = distribution(gen);
+					if (rng < 1.f/3.f) {
+						turtle_turn_dirs[i] = -1;
+					} else if (rng < 2.f / 3.f) {
+						turtle_turn_dirs[i] = 0;
+					} else {
+						turtle_turn_dirs[i] = 1;
+					}
+				}
+			}
+		}
+		// update turtles by moving then turning
+		static float speed = 5.f;
+		static float turn_speed = 1.5f;
+		static float pi = acosf(-1.f);
+		for (uint16_t i = 0; i < num_turtles; i++) {
+			turtles[i]->position.x += speed * elapsed * cosf(turtle_angles[i]);
+			turtles[i]->position.y += speed * elapsed * sinf(turtle_angles[i]);
+			turtle_angles[i] += turtle_turn_dirs[i] * elapsed * turn_speed;
+			if (turtle_angles[i] < 0) turtle_angles[i] += 2 * pi;
+			if (turtle_angles[i] > 0) turtle_angles[i] -= 2 * pi;
+		}
+		// clip turtles into pond
+		for (uint16_t i = 0; i < num_turtles; i++) {
+			static float pond_radius = 50.f;
+			float dist = glm::distance(turtles[i]->position, glm::vec3(0.f, 0.f, turtle_z));
+			if (dist > pond_radius) {
+				glm::vec3 diff = turtles[i]->position - glm::vec3(0.f, 0.f, turtle_z);
+				float angle = atan2f(diff.y, diff.x);
+				turtles[i]->position.x = pond_radius * cosf(angle);
+				turtles[i]->position.y = pond_radius * sinf(angle);
+				turtle_angles[i] += pi;
+			}
+		}
+		// rotate turtles
+		for (uint16_t i = 0; i < num_turtles; i++) {
+			turtles[i]->rotation = turtle_initial_rotation * glm::angleAxis(turtle_angles[i], glm::vec3(0.f, 0.f, 1.f));
 		}
 	}
 

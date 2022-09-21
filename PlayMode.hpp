@@ -36,7 +36,11 @@ struct PlayMode : Mode {
 	static constexpr uint16_t MAX_TURTLES = 100;
 	uint16_t num_turtles = 0;
 	float turtle_z;
+	glm::quat turtle_initial_rotation;
 	Scene::Transform* turtles[MAX_TURTLES];
+	float time_since_update = 0;
+	float turtle_angles[MAX_TURTLES];
+	int turtle_turn_dirs[MAX_TURTLES]; // -1 for left, 0 for still, 1 for right
 	
 	// Game over flag
 	bool game_over = false;
