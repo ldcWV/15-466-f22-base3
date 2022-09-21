@@ -31,6 +31,12 @@ struct PlayMode : Mode {
 	Scene::Transform* duck = nullptr;
 	glm::vec3 duck_initial_position;
 	glm::quat duck_initial_rotation;
+
+	// Turtle stuff
+	static constexpr uint16_t MAX_TURTLES = 100;
+	uint16_t num_turtles = 0;
+	float turtle_z;
+	Scene::Transform* turtles[MAX_TURTLES];
 	
 	// Game over flag
 	bool game_over = false;

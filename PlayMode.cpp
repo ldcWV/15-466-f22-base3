@@ -43,6 +43,11 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 	for (auto& transform : scene.transforms) {
 		if (transform.name == "Duck") {
 			duck = &transform;
+		} else if (transform.name.substr(0, 6) == "Turtle") {
+			turtles[num_turtles++] = &transform;
+			if (transform.name == "Turtle") { // Original turtle: choose z from here
+				turtle_z = transform.position.z;
+			}
 		}
 	}
 	if (duck == nullptr) {
@@ -51,6 +56,21 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 
 	duck_initial_position = duck->position;
 	duck_initial_rotation = duck->rotation;
+
+	// spawn turtles
+	for (uint16_t i = 0; i < num_turtles; i++) {
+		static float radius = 50.f;
+		float tx, ty;
+		while(true) {
+			tx = -1 + 2*distribution(gen);
+			ty = -1 + 2*distribution(gen);
+			if (tx*tx + ty*ty > 1) continue;
+			turtles[i]->position.x = tx * radius;
+			turtles[i]->position.y = ty * radius;
+			turtles[i]->position.z = turtle_z;
+			break;
+		}
+	}
 
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
 	camera = &scene.cameras.front();
