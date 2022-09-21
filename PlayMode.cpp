@@ -58,6 +58,7 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 	duck_initial_position = duck->position;
 	duck_initial_rotation = duck->rotation;
 
+	duck_size = 1.f;
 	// spawn turtles
 	static float pi = acosf(-1.f);
 	for (uint16_t i = 0; i < num_turtles; i++) {
@@ -131,6 +132,7 @@ void PlayMode::update(float elapsed) {
 
 			// Reset duck position
 			duck->position = duck_initial_position;
+			duck_size = 1.f;
 
 			// Reset turtles
 			static float pi = acosf(-1.f);
@@ -165,7 +167,7 @@ void PlayMode::update(float elapsed) {
 		if (down.pressed) duck->position += glm::vec3(strafe, 0.f, 0.f);
 
 		// clip to inside the pond
-		static float pond_radius = 50.f;
+		static float pond_radius = 51.f - duck_size;
 		float dist = glm::distance(duck->position, duck_initial_position);
 		if (dist > pond_radius) {
 			glm::vec3 diff = duck->position - duck_initial_position;
@@ -185,6 +187,9 @@ void PlayMode::update(float elapsed) {
 				duck->rotation = duck_initial_rotation * glm::angleAxis(angle, glm::vec3(0.0f, 0.0f, 1.0f));
 			}
 		}
+		
+		// update duck size
+		duck->scale = glm::vec3(duck_size, duck_size, duck_size);
 	}
 
 	{ // update turtle positions
@@ -240,7 +245,7 @@ void PlayMode::update(float elapsed) {
 				// find distance of closest assassin turtle
 				float closest = 100.f;
 				for (uint16_t i = 0; i < NUM_ASSASSINS; i++) {
-					closest = std::min(closest, glm::distance(turtles[i]->position, duck->position));
+					closest = std::min(closest, glm::distance(turtles[i]->position, duck->position) - duck_size);
 				}
 				uint16_t chosen_sound = 0;
 				for (uint16_t i = 0; i < NUM_ASSASSIN_SCAN_SOUNDS - 1; i++) {
@@ -260,8 +265,9 @@ void PlayMode::update(float elapsed) {
 	{ // eat normal turtles
 		for (uint16_t i = NUM_ASSASSINS; i < num_turtles; i++) {
 			float dist = glm::distance(turtles[i]->position, duck->position);
-			if (dist < 2.f) {
+			if (dist < turtle_size + duck_size) {
 				turtle_dead[i] = true;
+				duck_size *= 1.07f;
 				Sound::play(*kill_sound);
 			}
 		}
@@ -278,7 +284,7 @@ void PlayMode::update(float elapsed) {
 	{ // touch assassin = death
 		for (uint16_t i = 0; i < NUM_ASSASSINS; i++) {
 			float dist = glm::distance(turtles[i]->position, duck->position);
-			if (dist < 2.f) {
+			if (dist < turtle_size + duck_size) {
 				game_over = 1;
 			}
 		}

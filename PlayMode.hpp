@@ -29,11 +29,13 @@ struct PlayMode : Mode {
 
 	// Duck transforms
 	Scene::Transform* duck = nullptr;
+	float duck_size = 1;
 	glm::vec3 duck_initial_position;
 	glm::quat duck_initial_rotation;
 
 	// Turtle stuff
 	static constexpr uint16_t MAX_TURTLES = 100;
+	static constexpr float turtle_size = 1;
 	uint16_t num_turtles = 0;
 	float turtle_z;
 	glm::quat turtle_initial_rotation;
@@ -48,7 +50,7 @@ struct PlayMode : Mode {
 	// Assassins
 	static constexpr uint16_t NUM_ASSASSINS = 10;
 	static constexpr uint16_t NUM_ASSASSIN_SCAN_SOUNDS = 7;
-	static constexpr float dist_thresholds[NUM_ASSASSIN_SCAN_SOUNDS - 1] = {5, 10, 15, 20, 25, 30};
+	static constexpr float dist_thresholds[NUM_ASSASSIN_SCAN_SOUNDS - 1] = {5, 8, 13, 20, 25, 30};
 	bool played_assassin_scan_sound = false;
 	Sound::Sample* assassin_scan_sounds[NUM_ASSASSIN_SCAN_SOUNDS];
 	
