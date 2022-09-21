@@ -80,6 +80,7 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 	for (uint16_t i = 0; i < NUM_ASSASSIN_SCAN_SOUNDS; i++) {
 		assassin_scan_sounds[i] = new Sound::Sample(data_path("s" + std::to_string(i) + ".wav"));
 	}
+	kill_sound = new Sound::Sample(data_path("kill.wav"));
 
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
 	camera = &scene.cameras.front();
@@ -261,6 +262,7 @@ void PlayMode::update(float elapsed) {
 			float dist = glm::distance(turtles[i]->position, duck->position);
 			if (dist < 2.f) {
 				turtle_dead[i] = true;
+				Sound::play(*kill_sound);
 			}
 		}
 	}

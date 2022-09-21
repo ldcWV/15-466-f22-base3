@@ -43,6 +43,7 @@ struct PlayMode : Mode {
 	int turtle_turn_dirs[MAX_TURTLES]; // -1 for left, 0 for still, 1 for right
 	bool turtle_dead[MAX_TURTLES];
 	int num_turtles_left;
+	Sound::Sample* kill_sound;
 
 	// Assassins
 	static constexpr uint16_t NUM_ASSASSINS = 10;
