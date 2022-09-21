@@ -41,9 +41,18 @@ struct PlayMode : Mode {
 	float time_since_update = 0;
 	float turtle_angles[MAX_TURTLES];
 	int turtle_turn_dirs[MAX_TURTLES]; // -1 for left, 0 for still, 1 for right
+	bool turtle_dead[MAX_TURTLES];
+	int num_turtles_left;
+
+	// Assassins
+	static constexpr uint16_t NUM_ASSASSINS = 10;
+	static constexpr uint16_t NUM_ASSASSIN_SCAN_SOUNDS = 7;
+	static constexpr float dist_thresholds[NUM_ASSASSIN_SCAN_SOUNDS - 1] = {5, 10, 15, 20, 25, 30};
+	bool played_assassin_scan_sound = false;
+	Sound::Sample* assassin_scan_sounds[NUM_ASSASSIN_SCAN_SOUNDS];
 	
 	// Game over flag
-	bool game_over = false;
+	int game_over = 0;
 
 	//camera:
 	Scene::Camera *camera = nullptr;

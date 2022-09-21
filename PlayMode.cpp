@@ -66,7 +66,8 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 		while(true) {
 			tx = -1 + 2*distribution(gen);
 			ty = -1 + 2*distribution(gen);
-			if (tx*tx + ty*ty > 1) continue;
+			float dist = tx*tx + ty*ty;
+			if (dist > 1 || dist < 0.25) continue;
 			turtles[i]->position.x = tx * radius;
 			turtles[i]->position.y = ty * radius;
 			turtles[i]->position.z = turtle_z;
@@ -74,6 +75,10 @@ PlayMode::PlayMode() : scene(*duck_scene) {
 		}
 		turtle_angles[i] = distribution(gen) * 2 * pi;
 		turtle_turn_dirs[i] = 0;
+		turtle_dead[i] = false;
+	}
+	for (uint16_t i = 0; i < NUM_ASSASSIN_SCAN_SOUNDS; i++) {
+		assassin_scan_sounds[i] = new Sound::Sample(data_path("s" + std::to_string(i) + ".wav"));
 	}
 
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -121,17 +126,37 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 void PlayMode::update(float elapsed) {
 	if (game_over) {
 		if (r.pressed) {
-			game_over = false;
+			game_over = 0;
 
 			// Reset duck position
 			duck->position = duck_initial_position;
+
+			// Reset turtles
+			static float pi = acosf(-1.f);
+			for (uint16_t i = 0; i < num_turtles; i++) {
+				static float radius = 50.f;
+				float tx, ty;
+				while(true) {
+					tx = -1 + 2*distribution(gen);
+					ty = -1 + 2*distribution(gen);
+					float dist = tx*tx + ty*ty;
+					if (dist > 1 || dist < 0.25) continue;
+					turtles[i]->position.x = tx * radius;
+					turtles[i]->position.y = ty * radius;
+					turtles[i]->position.z = turtle_z;
+					break;
+				}
+				turtle_angles[i] = distribution(gen) * 2 * pi;
+				turtle_turn_dirs[i] = 0;
+				turtle_dead[i] = false;
+			}
 		}
 		return;
 	}
 
 	{ // update duck position
 		int ctr = (left.pressed ^ right.pressed) + (up.pressed ^ down.pressed);
-		static float speed = 40;
+		float speed = space.pressed ? 40.f : 20.f;
 		float strafe = (ctr == 1 ? speed : speed/sqrtf(2.f)) * elapsed;
 		if (left.pressed) duck->position -= glm::vec3(0.f, strafe, 0.f);
 		if (right.pressed) duck->position += glm::vec3(0.f, strafe, 0.f);
@@ -208,6 +233,63 @@ void PlayMode::update(float elapsed) {
 		}
 	}
 
+	{ // assassin scan
+		if (z.pressed) {
+			if (!played_assassin_scan_sound) {
+				// find distance of closest assassin turtle
+				float closest = 100.f;
+				for (uint16_t i = 0; i < NUM_ASSASSINS; i++) {
+					closest = std::min(closest, glm::distance(turtles[i]->position, duck->position));
+				}
+				uint16_t chosen_sound = 0;
+				for (uint16_t i = 0; i < NUM_ASSASSIN_SCAN_SOUNDS - 1; i++) {
+					if (closest < dist_thresholds[i]) {
+						chosen_sound = NUM_ASSASSIN_SCAN_SOUNDS - 1 - i;
+						break;
+					}
+				}
+				Sound::play(*assassin_scan_sounds[chosen_sound]);
+				played_assassin_scan_sound = true;
+			}
+		} else {
+			played_assassin_scan_sound = false;
+		}
+	}
+
+	{ // eat normal turtles
+		for (uint16_t i = NUM_ASSASSINS; i < num_turtles; i++) {
+			float dist = glm::distance(turtles[i]->position, duck->position);
+			if (dist < 2.f) {
+				turtle_dead[i] = true;
+			}
+		}
+	}
+
+	{ // move dead turtles out of screen
+		for (uint16_t i = NUM_ASSASSINS; i < num_turtles; i++) {
+			if (turtle_dead[i]) {
+				turtles[i]->position.z = -10;
+			}
+		}
+	}
+
+	{ // touch assassin = death
+		for (uint16_t i = 0; i < NUM_ASSASSINS; i++) {
+			float dist = glm::distance(turtles[i]->position, duck->position);
+			if (dist < 2.f) {
+				game_over = 1;
+			}
+		}
+	}
+
+	{ // All turtles dead = win
+		num_turtles_left = 0;
+		for (uint16_t i = NUM_ASSASSINS; i < num_turtles; i++) {
+			if (!turtle_dead[i]) num_turtles_left++;
+		}
+		if (num_turtles_left == 0) game_over = 2;
+	}
+
 }
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
@@ -233,7 +315,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 
 	scene.draw(*camera);
 
-	if (game_over) {
+	auto draw_text = [&](std::string text) {
 		glDisable(GL_DEPTH_TEST);
 		float aspect = float(drawable_size.x) / float(drawable_size.y);
 		DrawLines lines(glm::mat4(
@@ -244,14 +326,22 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Game Over! Press R to restart.",
+		lines.draw_text(text,
 			glm::vec3(-aspect + 0.2 * H, -0.5f + 0.1f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Game Over! Press R to restart.",
+		lines.draw_text(text,
 			glm::vec3(-aspect + 0.2 * H + ofs, -0.5f + 0.1f * H + ofs, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+	};
+
+	if (game_over == 0) {
+		draw_text("Turtles remaining: " + std::to_string(num_turtles_left));
+	} else if (game_over == 1) {
+		draw_text("You touched an assassin! Press R to restart.");
+	} else if (game_over == 2) {
+		draw_text("You captured all the turtles! Press R to restart.");
 	}
 }
